@@ -1,0 +1,45 @@
+[project]
+name = "knowledge-base-csv"
+version = "0.1.0"
+description = "Transform uploaded CSV files of URLs into a searchable, semantic knowledge base (Django + FAISS)."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Knowledge Base" }]
+
+dependencies = [
+    "Django>=5.0,<6.0",
+    "djangorestframework>=3.15",
+    "python-dotenv>=1.0",
+    "requests>=2.31",
+    "beautifulsoup4>=4.12",
+    "lxml>=5.0",
+    "numpy>=1.26",
+    "scikit-learn>=1.4",
+    "faiss-cpu>=1.8",
+    "playwright>=1.62.0",
+    "tldextract>=5.3.1",
+]
+
+[project.optional-dependencies]
+# Optional: a real sentence-transformer embedding model for higher-quality
+# semantic search. Falls back to a deterministic TF-IDF embedding if not
+# installed, so the app runs out-of-the-box with no model download.
+embeddings = [
+    "sentence-transformers>=3.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["kb_project", "kbapp"]
+
+[tool.uv]
+# Keep dev tooling out of the default install.
+dev-dependencies = []
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

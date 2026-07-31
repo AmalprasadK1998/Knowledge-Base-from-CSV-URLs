@@ -1,0 +1,68 @@
+{% extends "kbapp/base.html" %}
+{% block title %}Dashboard &middot; Knowledge Base{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>Turn a CSV of URLs into a searchable knowledge base</h1>
+  <p class="lead">
+    Upload a CSV containing URLs (one per line, or with a <code>url</code> column).
+    The app scrapes each page, stores the content in SQLite, builds vector
+    embeddings, and lets you run semantic search over the results.
+  </p>
+</section>
+
+<section class="stats">
+  <div class="stat-card">
+    <span class="stat-value">{{ url_count }}</span>
+    <span class="stat-label">URLs harvested</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-value">{{ chunk_count }}</span>
+    <span class="stat-label">Text chunks</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-value">{{ vector_count }}</span>
+    <span class="stat-label">Vectors indexed</span>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Upload CSV</h2>
+  <form method="post" enctype="multipart/form-data" class="upload-form">
+    {% csrf_token %}
+    <div class="form-row">
+      <input type="file" name="csv_file" accept=".csv" required>
+      <button type="submit" class="btn btn-primary">Upload &amp; Harvest</button>
+    </div>
+    <p class="hint">
+      Need a sample? See <code>sample_urls.csv</code> in the project root.
+    </p>
+  </form>
+</section>
+
+<section class="card">
+  <div class="card-head">
+    <h2>Recent harvested URLs</h2>
+    <a href="{% url 'search' %}" class="btn btn-ghost">Search &rarr;</a>
+  </div>
+  {% if recent %}
+    <table class="table">
+      <thead>
+        <tr><th>URL</th><th>Status</th><th>HTTP</th><th>Title</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for u in recent %}
+          <tr>
+            <td class="cell-url"><a href="{{ u.url }}" target="_blank" rel="noopener">{{ u.url }}</a></td>
+            <td><span class="badge badge-{{ u.status }}">{{ u.status }}</span></td>
+            <td>{{ u.http_status|default:"—" }}</td>
+            <td class="cell-title">{{ u.title|default:"—" }}</td>
+            <td><a href="{% url 'detail' u.pk %}" class="link">View</a></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty">No URLs harvested yet. Upload a CSV to begin.</p>
+  {% endif %}
+</section>
+{% endblock %}

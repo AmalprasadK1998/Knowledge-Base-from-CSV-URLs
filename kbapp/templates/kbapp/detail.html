@@ -1,0 +1,35 @@
+{% extends "kbapp/base.html" %}
+{% block title %}{{ url_obj.title|default:url_obj.url }} &middot; Knowledge Base{% endblock %}
+{% block content %}
+<a href="{% url 'index' %}" class="back-link">&larr; Back to dashboard</a>
+
+<section class="card">
+  <h2>{{ url_obj.title|default:"(untitled)" }}</h2>
+  <p class="detail-url"><a href="{{ url_obj.url }}" target="_blank" rel="noopener">{{ url_obj.url }}</a></p>
+  <div class="detail-meta">
+    <span class="badge badge-{{ url_obj.status }}">{{ url_obj.status }}</span>
+    <span>HTTP {{ url_obj.http_status|default:"—" }}</span>
+    <span>source: {{ url_obj.source_file|default:"—" }}</span>
+    <span>hash: {{ url_obj.content_hash|default:"—" }}</span>
+  </div>
+  {% if url_obj.meta_description %}
+    <p class="detail-desc">{{ url_obj.meta_description }}</p>
+  {% endif %}
+  {% if url_obj.error_message %}
+    <p class="detail-error">Error: {{ url_obj.error_message }}</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Extracted text</h2>
+  <pre class="detail-text">{{ url_obj.extracted_text|truncatechars_html:8000 }}</pre>
+</section>
+
+<section class="card">
+  <h2>Raw HTML</h2>
+  <details>
+    <summary>Show raw HTML ({{ url_obj.raw_html|length }} bytes)</summary>
+    <pre class="detail-text">{{ url_obj.raw_html|truncatechars_html:8000 }}</pre>
+  </details>
+</section>
+{% endblock %}

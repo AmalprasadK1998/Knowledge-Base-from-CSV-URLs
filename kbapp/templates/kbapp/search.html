@@ -1,0 +1,41 @@
+{% extends "kbapp/base.html" %}
+{% block title %}Search &middot; Knowledge Base{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>Semantic search</h1>
+  <p class="lead">Ask a natural-language question about the harvested people pages.</p>
+</section>
+
+<section class="card">
+  <form method="get" class="search-form">
+    <input type="text" name="q" value="{{ query }}" placeholder="e.g. Who is the CEO of Oracle?" required>
+    <button type="submit" class="btn btn-primary">Search</button>
+  </form>
+</section>
+
+{% if query %}
+  <section class="card">
+    <h2>Answer</h2>
+    <div class="answer">{{ answer|linebreaksbr }}</div>
+  </section>
+
+  <section class="card">
+    <h2>Relevant chunks ({{ hits|length }})</h2>
+    {% if hits %}
+      <ul class="hit-list">
+        {% for hit in hits %}
+          <li class="hit">
+            <div class="hit-meta">
+              <a href="{% url 'index' %}" class="hit-url">{{ hit.url }}</a>
+              <span class="hit-score">chunk #{{ hit.chunk_id }} &middot; distance {{ hit.score|floatformat:3 }}</span>
+            </div>
+            <p class="hit-text">{{ hit.chunk_text|truncatewords:60 }}</p>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty">No results. Upload a CSV and try again.</p>
+    {% endif %}
+  </section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,16 @@
+.env
+.venv
+venv
+
+!logs/.gitkeep
+logs/*
+
+!vector_store/.gitkeep
+vector_store/*
+
+
+
+*.sqlite3
+*.csv
+
+__pycache__

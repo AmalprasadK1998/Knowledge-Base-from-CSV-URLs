@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Knowledge Base{% endblock %}</title>
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'kbapp/styles.css' %}">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="{% url 'index' %}" class="brand">
+        <span class="brand-mark">KB</span>
+        <span class="brand-name">URL Knowledge Base</span>
+      </a>
+      <nav class="nav">
+        <a href="{% url 'index' %}" class="nav-link">Dashboard</a>
+        <a href="{% url 'search' %}" class="nav-link">Search</a>
+        <a href="/api/urls/" class="nav-link">API</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container main">
+    {% if messages %}
+      <div class="messages">
+        {% for message in messages %}
+          <div class="message message-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <span>CSV URL Knowledge Base &middot; Django + FAISS</span>
+    </div>
+  </footer>
+</body>
+</html>
