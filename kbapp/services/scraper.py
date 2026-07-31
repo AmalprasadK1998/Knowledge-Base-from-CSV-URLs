@@ -12,7 +12,6 @@ from dataclasses import dataclass
 
 import requests
 from bs4 import BeautifulSoup
-from playwright_scraper import get_page_html
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +44,6 @@ def scrape_url(url: str, timeout: int = 20, user_agent: str = "") -> ScrapeResul
         resp = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True)
     except requests.RequestException as exc:
         logger.warning("scrape failed for %s: %s", url, exc)
-        
         return ScrapeResult(
             url=url, http_status=None, title="", meta_description="",
             raw_html="", extracted_text="", error=str(exc),

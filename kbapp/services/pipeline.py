@@ -49,7 +49,7 @@ def run_pipeline(urls: list[str], source_file: str = "") -> dict:
         obj.extracted_text = result.extracted_text
         obj.content_hash = hashlib.sha256(result.extracted_text.encode()).hexdigest()[:32]
 
-        if result.error or not result.extracted_text:
+        if (result.error or not result.extracted_text or result.http_status is None or result.http_status >= 400):
             obj.status = HarvestedURL.Status.FAILED
             obj.error_message = result.error or "No text extracted"
             failed += 1
