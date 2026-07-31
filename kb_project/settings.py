@@ -103,6 +103,7 @@ REST_FRAMEWORK = {
 # --- App-specific configuration --------------------------------------------
 # Directory where the FAISS index + metadata live.
 VECTOR_STORE_DIR = BASE_DIR / "vector_store"
+TOP_K = 5
 
 
 

@@ -5,6 +5,7 @@ import logging
 
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
+from django.conf import settings
 
 from .models import HarvestedURL
 from .services.csv_parser import parse_csv
@@ -63,7 +64,7 @@ def search(request):
     answer = ""
     if query:
         store = get_vector_store()
-        hits = store.search(query, top_k=5)
+        hits = store.search(query, top_k=settings.TOP_K)
         chunk_texts = [h.chunk_text for h in hits]
         answer = synthesize_answer(query, chunk_texts)
         logger.info("search '%s' -> %d hits", query, len(hits))
