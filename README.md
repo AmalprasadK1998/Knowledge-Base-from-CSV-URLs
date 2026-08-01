@@ -224,6 +224,8 @@ python manage.py rebuild_index
 
 ## Notes & trade-offs
 
+**For my convenience, I used google AI studio API key and its free tier models.** `GOOGLE_API_KEY`
+
 - **No JS rendering.** These executive-listing pages are server-rendered, so
   `requests` + `lxml` is sufficient. For JS-heavy sites, swap in Playwright.
 - **TF-IDF fallback** keeps the app runnable in restricted environments; install
