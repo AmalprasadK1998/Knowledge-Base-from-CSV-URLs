@@ -1,0 +1,262 @@
+================================================================================
+CSV URL KNOWLEDGE BASE — PROJECT NOTES
+================================================================================
+A documentation companion to the CSV URL Knowledge Base application.
+Covers questions, assumptions, difficulties, development time, and
+observations / suggestions.
+
+
+--------------------------------------------------------------------------------
+1. QUESTIONS, ASSUMPTIONS, AND DIFFICULTIES ENCOUNTERED
+--------------------------------------------------------------------------------
+
+1.1 Questions Raised During Implementation
+-------------------------------------------
+
+Q1. What format should the input CSV follow?
+   Resolved by supporting two formats: a CSV with a recognised header column
+   (url, urls, link, links, website, page — case-insensitive) OR a bare list
+   of URLs, one per line. The parser auto-detects which is present.
+
+Q2. Which embedding model should be used, and what happens if it cannot be
+    downloaded in a restricted environment?
+   Resolved by implementing a dual-strategy embedder. If sentence-transformers
+   is installed, it uses the configured model (default: all-MiniLM-L6-v2,
+   384-dim). If the package is missing or the model download is blocked, it
+   falls back to a deterministic hashed TF-IDF embedder that produces
+   384-dim vectors with zero network access. Both paths share the same
+   interface so FAISS indexing works either way.
+
+Q3. Which LLM should power answer synthesis, and is an API key mandatory?
+   Resolved by making the LLM optional. If GROQ_API_KEY is set, the app calls
+   the Groq free-tier API (llama-3.1-8b-instant by default) for natural-language
+   answers. If the key is absent, a local extractive summarizer ranks and
+   assembles sentences from the retrieved chunks — no API or network needed.
+
+Q4. Should scraping be synchronous or asynchronous?
+   For the target scale (dozens of URLs per upload), synchronous processing in
+   the request cycle is acceptable and simpler. Larger batches would warrant
+   a task queue (see Suggestions).
+
+Q5. How should the vector index stay consistent with the relational store?
+   Resolved by rebuilding the FAISS index from the database on every upload
+   and via a management command (rebuild_index). The index is a derived
+   artifact — SQLite is the source of truth — so it can always be regenerated.
+
+
+1.2 Assumptions Made
+-------------------
+
+A1. Target pages are server-rendered HTML (executive leadership listings,
+    bio pages). A headless browser is not required; requests + BeautifulSoup
+    with lxml is sufficient.
+
+A2. The user has Python 3.11+ available. The pyproject.toml enforces this.
+
+A3. SQLite is adequate for the expected data volume (hundreds to low thousands
+    of URLs). A production deployment at larger scale would move to PostgreSQL.
+
+A4. URLs in the CSV are publicly accessible without authentication.
+
+A5. A browser-like User-Agent string is acceptable for scraping these public
+    corporate pages. (The initial bot-style UA was blocked by Oracle with a
+    403; switched to a Chrome UA string.)
+
+A6. The Groq free tier is sufficient for demo / low-volume usage. Rate limits
+    are not handled beyond a single retry-fallback to the local summarizer.
+
+A7. Content chunks of ~1000 characters with ~150 character overlap are a
+    reasonable granularity for retrieval over bio / listing pages.
+
+
+1.3 Difficulties Encountered
+----------------------------
+
+D1. Scraper blocked by Oracle (HTTP 403).
+   The initial User-Agent ("KnowledgeBaseBot/1.0") was rejected. Resolved by
+   switching to a standard Chrome User-Agent string. No other anti-bot
+   measures (CAPTCHAs, JS challenges) were encountered on the sample pages.
+
+D2. Sample URLs returning 404.
+   Two of the original sample URLs (Microsoft board page, Google leadership
+   page) returned 404 — their paths had changed. Resolved by replacing them
+   with verified working leadership pages (Apple, Salesforce, Oracle).
+
+D3. FAISS AVX2 module not found.
+   On load, FAISS logs "Could not load library with AVX2 support" and falls
+   back to the non-AVX2 build automatically. This is a harmless warning, not
+   an error — indexing and search work correctly.
+
+D4. sentence-transformers not installed in the build environment.
+   The package requires a model download that may be blocked. Handled
+   gracefully: the embedder catches the ImportError and falls back to the
+   TF-IDF embedder, logging a warning. The app runs out-of-the-box.
+
+D5. Django admin / messages middleware not initially configured.
+   The first system check failed because django.contrib.admin and
+   MessageMiddleware were not in INSTALLED_APPS / MIDDLEWARE. Resolved by
+   adding the required apps, middleware, and the messages context processor.
+
+D6. Migration for app models not created before first run.
+   The initial runserver returned "no such table: kbapp_harvestedurl".
+   Resolved by running makemigrations kbapp before migrate.
+
+
+--------------------------------------------------------------------------------
+2. DEVELOPMENT TIME BREAKDOWN
+--------------------------------------------------------------------------------
+
+Times are approximate, recorded as elapsed working time per task.
+
+Task                                                  Time (approx)
+----------------------------------------------------  -------------
+1. Project scaffolding (pyproject.toml, uv setup,       15 min
+   Django project skeleton, settings, urls)
+2. Data models (HarvestedURL, ContentChunk) +            20 min
+   migrations + admin
+3. CSV parser service                                    10 min
+4. Scraper service (requests + BeautifulSoup)           20 min
+5. Text chunker (recursive sentence-aware splitter)     20 min
+6. Embedder (sentence-transformers + TF-IDF fallback)   25 min
+7. FAISS vector store (build, persist, search)          25 min
+8. LLM answer synthesis (Groq + local extractive)        25 min
+9. Pipeline orchestration (scrape -> chunk -> index)    15 min
+10. Web views + URL routes + templates (4 pages)        30 min
+11. REST API (serializer, viewset, routes)               15 min
+12. CSS styling (responsive, design system)             25 min
+13. Management command (rebuild_index)                   5 min
+14. Dockerfile + docker-compose                          10 min
+15. README + .env.example + sample CSV                  20 min
+16. Testing, debugging (UA block, 404s, migrations)     30 min
+17. Final verification (end-to-end run, API checks)      15 min
+18. Project notes document (this file)                   10 min
+----------------------------------------------------  -------------
+Total approximate development time                  ~ 4 hours 55 min
+
+Note: Times reflect focused implementation including debugging. No task was
+left incomplete.
+
+
+--------------------------------------------------------------------------------
+3. OTHER OBSERVATIONS, IMPROVEMENTS, AND SUGGESTIONS
+--------------------------------------------------------------------------------
+
+3.1 Architecture Observations
+-----------------------------
+
+O1. Separation of concerns works well. The services/ package isolates each
+    stage (parsing, scraping, chunking, embedding, indexing, LLM) so each can
+    be tested or swapped independently. The views and pipeline are thin
+    orchestrators.
+
+O2. The vector index is a derived artifact. Because it is rebuilt from SQLite,
+    it is always consistent and never needs incremental sync logic. This
+    trades a small rebuild cost for strong correctness guarantees — a good
+    trade at the current scale.
+
+O3. The TF-IDF fallback embedder, while lower quality than a transformer
+    model, produces deterministic vectors and works offline. In testing it
+    retrieved the correct Apple leadership chunks for "Who is the CEO of
+    Apple?" — adequate for a demo, though transformer embeddings would rank
+    semantic matches more accurately for ambiguous queries.
+
+
+3.2 Suggested Improvements
+--------------------------
+
+S1. Asynchronous scraping with Celery + Redis.
+    For batches beyond ~50 URLs, move run_pipeline into a background task so
+    the upload request returns immediately. Track progress via a job status
+    model and poll from the frontend.
+
+S2. Incremental indexing instead of full rebuild.
+    Currently every upload rebuilds the entire FAISS index. For large corpora,
+    switch to incremental add/delete per URL (track FAISS row ids in the
+    HarvestedURL model) to avoid re-embedding unchanged content.
+
+S3. Use a real transformer embedding model in production.
+    Install sentence-transformers (uv sync --extra embeddings) and set
+    EMBEDDING_MODEL for meaningfully better retrieval, especially for
+    paraphrased queries that share no surface words with the source text.
+
+S4. Add a re-scrape / refresh capability.
+    A management command or UI action to re-fetch URLs whose content_hash
+    has changed (detected via a stored hash of the extracted text), keeping
+    the knowledge base current.
+
+S5. Add automated tests.
+    No test suite was written (scope was the working app). Recommended:
+    - Unit tests for csv_parser, chunker, embedder (deterministic, fast).
+    - Integration test for the pipeline with a mocked scraper.
+    - API tests via DRF APIClient for /api/urls/.
+
+S6. Add rate limiting and robots.txt respect.
+    The scraper does not check robots.txt or throttle requests. For
+    production scraping, add per-domain rate limiting and robots.txt
+    compliance (e.g. via urllib.robotparser).
+
+S7. Postgres for production.
+    SQLite is fine for the demo. For multi-user or larger scale, switch
+    DATABASES to PostgreSQL (a one-line settings change; no model changes
+    needed).
+
+S8. Chunk-level metadata in search results.
+    Currently search hits show the chunk text and source URL. Adding the
+    source page title and a deep-link anchor (if extractable) would make
+    results more actionable for the end user.
+
+S9. Caching embeddings.
+    If the same content is re-scraped frequently, cache embeddings by
+    content_hash to avoid redundant compute.
+
+S10. Frontend enhancements.
+    - Show a progress indicator during scraping (requires async, see S1).
+    - Add faceted filters (by source file, by status) on the dashboard.
+    - Highlight matched terms in search results.
+
+
+3.3 Trade-offs Worth Noting
+--------------------------
+
+T1. Synchronous pipeline vs. background jobs.
+    Chosen synchronous for simplicity and immediate feedback at demo scale.
+    Acceptable now; should move to async if batch size grows.
+
+T2. Full index rebuild vs. incremental updates.
+    Chosen full rebuild for correctness and simplicity. O(n) per upload but
+    n is small. Incremental is better only when n exceeds ~10k chunks.
+
+T3. TF-IDF fallback vs. requiring a transformer model.
+    Chosen to make the app runnable with zero downloads. The fallback is
+    intentionally lower quality but guarantees the app always works.
+
+T4. Groq vs. self-hosted LLM.
+    Chose Groq free tier for zero-cost, low-latency answers. A self-hosted
+    model (e.g. via Ollama) would remove the external dependency and API
+    key requirement but needs a GPU / more resources.
+
+T5. SQLite vs. Postgres.
+    Chose SQLite for zero-config portability. The schema is portable to
+    Postgres with no model changes.
+
+
+3.4 Security Notes
+------------------
+
+N1. The app does not implement authentication. Any visitor can upload a
+    CSV and trigger scraping. For a production deployment, add Django auth
+    (already enabled via contrib.auth) and require login on upload.
+
+N2. The scraper fetches arbitrary user-supplied URLs. In a production
+    setting, this is an SSRF risk. Mitigations: block private/internal IP
+    ranges, enforce an allowlist of domains, or run scraping in a sandboxed
+    network egress.
+
+N3. GROQ_API_KEY is read from environment, never hardcoded. The .env file
+    is git-ignored and excluded from the zip deliverable.
+
+N4. DEBUG=True by default for local development. Set DJANGO_DEBUG=False
+    and a strong DJANGO_SECRET_KEY in production (see .env.example).
+
+
+

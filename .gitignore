@@ -11,6 +11,6 @@ vector_store/*
 
 
 *.sqlite3
-*.csv
+
 
 __pycache__
